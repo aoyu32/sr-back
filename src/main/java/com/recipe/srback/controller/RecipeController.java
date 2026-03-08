@@ -4,6 +4,7 @@ import com.recipe.srback.result.Result;
 import com.recipe.srback.service.RecipeService;
 import com.recipe.srback.vo.RecipeDetailVO;
 import com.recipe.srback.vo.RecipeListVO;
+import com.recipe.srback.vo.RecipeRankingVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -134,5 +135,15 @@ public class RecipeController {
         
         recipeService.uncollectRecipe(id, userId);
         return Result.success();
+    }
+    
+    /**
+     * 查询食谱排行榜（按点赞数排序，取前10）
+     */
+    @GetMapping("/rankings")
+    public Result<List<RecipeRankingVO>> getRecipeRankings() {
+        log.info("查询食谱排行榜");
+        List<RecipeRankingVO> rankings = recipeService.getRecipeRankings();
+        return Result.success(rankings);
     }
 }

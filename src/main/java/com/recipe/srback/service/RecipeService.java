@@ -2,6 +2,7 @@ package com.recipe.srback.service;
 
 import com.recipe.srback.vo.RecipeDetailVO;
 import com.recipe.srback.vo.RecipeListVO;
+import com.recipe.srback.vo.RecipeRankingVO;
 
 import java.util.List;
 
@@ -59,4 +60,9 @@ public interface RecipeService {
      * 取消收藏食谱
      */
     void uncollectRecipe(Long recipeId, Long userId);
+    
+    /**
+     * 查询食谱排行榜（按点赞数排序，取前10）
+     */
+    List<RecipeRankingVO> getRecipeRankings();
 }

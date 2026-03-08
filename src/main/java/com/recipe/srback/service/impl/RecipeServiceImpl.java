@@ -16,6 +16,7 @@ import com.recipe.srback.result.ResultCodeEnum;
 import com.recipe.srback.service.RecipeService;
 import com.recipe.srback.vo.RecipeDetailVO;
 import com.recipe.srback.vo.RecipeListVO;
+import com.recipe.srback.vo.RecipeRankingVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -368,5 +369,30 @@ public class RecipeServiceImpl implements RecipeService {
         }
         
         return vo;
+    }
+    
+    @Override
+    public List<RecipeRankingVO> getRecipeRankings() {
+        LambdaQueryWrapper<Recipe> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Recipe::getStatus, 1);
+        wrapper.orderByDesc(Recipe::getLikesCount);
+        wrapper.last("LIMIT 10");
+        
+        List<Recipe> recipes = recipeMapper.selectList(wrapper);
+        
+        List<RecipeRankingVO> rankings = new ArrayList<>();
+        for (int i = 0; i < recipes.size(); i++) {
+            Recipe recipe = recipes.get(i);
+            RecipeRankingVO vo = new RecipeRankingVO();
+            vo.setRank(i + 1);
+            vo.setId(recipe.getId());
+            vo.setImage(recipe.getImage());
+            vo.setName(recipe.getName());
+            vo.setLikes(recipe.getLikesCount());
+            vo.setViews(recipe.getViewsCount());
+            rankings.add(vo);
+        }
+        
+        return rankings;
     }
 }
