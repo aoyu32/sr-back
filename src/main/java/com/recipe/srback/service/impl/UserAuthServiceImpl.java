@@ -111,8 +111,10 @@ public class UserAuthServiceImpl implements UserAuthService {
         // 插入用户，获取生成的ID
         userMapper.insert(user);
         
-        // 设置默认昵称：前缀-ID
-        user.setNickname(nicknamePrefix + "-" + user.getId());
+        // 设置默认昵称：前缀-ID后6位
+        String idStr = user.getId().toString();
+        String shortId = idStr.length() > 6 ? idStr.substring(idStr.length() - 6) : idStr;
+        user.setNickname(nicknamePrefix + "-" + shortId);
         userMapper.updateById(user);
     }
     
