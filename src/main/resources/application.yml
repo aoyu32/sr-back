@@ -35,25 +35,25 @@ spring:
           temperature: 0.7
   servlet:
     multipart:
-      max-file-size: 500MB       # ????????
-      max-request-size: 1000MB   # ?????????????????
+      max-file-size: 500MB       
+      max-request-size: 1000MB   
 
 mybatis-plus:
-  mapper-locations:
-  type-aliases-package:
+  mapper-locations: classpath*:com/recipe/srback/mapper/xml/*.xml
+  type-aliases-package: com.recipe.srback.entity
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
     map-underscore-to-camel-case: true
   global-config:
     db-config:
-      id-type:
+      id-type: ASSIGN_ID
 knife4j:
   enable: true
 springdoc:
   api-docs:
-    enabled: true  # ?? API ??
+    enabled: true  
   swagger-ui:
-    enabled: true  # ?? Swagger UI
+    enabled: true  
 jwt:
   secret: smartrepicebacksystem
   expiration: 7d
@@ -63,7 +63,13 @@ logging:
 
 aliyun:
   oss:
+    enabled: false  # 暂时禁用OSS，需要时改为true并配置下面的信息
     endpoint: oss-cn-beijing.aliyuncs.com
     access-key-id:
     access-key-secret:
     bucket-name: sr-back
+
+user:
+  default:
+    nickname-prefix: user  # 默认昵称前缀
+    avatar: https://smart-recipe.oss-cn-beijing.aliyuncs.com/default-avatar.jfif  # 默认头像
