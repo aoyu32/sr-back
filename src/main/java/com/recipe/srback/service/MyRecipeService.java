@@ -2,6 +2,7 @@ package com.recipe.srback.service;
 
 import com.recipe.srback.dto.CreateRecipeDTO;
 import com.recipe.srback.dto.UpdateRecipeDTO;
+import com.recipe.srback.vo.RecipeEditVO;
 import com.recipe.srback.vo.RecipeListVO;
 
 import java.util.List;
@@ -19,6 +20,11 @@ public interface MyRecipeService {
      * 获取我的食谱列表
      */
     List<RecipeListVO> getMyRecipes(Long userId);
+    
+    /**
+     * 获取我的食谱详情（用于编辑）
+     */
+    RecipeEditVO getMyRecipeById(Long userId, Long recipeId);
     
     /**
      * 更新我的食谱

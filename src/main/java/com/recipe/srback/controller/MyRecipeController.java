@@ -4,7 +4,7 @@ import com.recipe.srback.dto.CreateRecipeDTO;
 import com.recipe.srback.dto.UpdateRecipeDTO;
 import com.recipe.srback.result.Result;
 import com.recipe.srback.service.MyRecipeService;
-import com.recipe.srback.vo.RecipeDetailVO;
+import com.recipe.srback.vo.RecipeEditVO;
 import com.recipe.srback.vo.RecipeListVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +42,17 @@ public class MyRecipeController {
         log.info("获取我的食谱列表，userId: {}", userId);
         List<RecipeListVO> recipes = myRecipeService.getMyRecipes(userId);
         return Result.success(recipes);
+    }
+    
+    /**
+     * 获取我的食谱详情（用于编辑）
+     */
+    @GetMapping("/{recipeId}")
+    public Result<RecipeEditVO> getMyRecipeById(@RequestAttribute("userId") Long userId,
+                                                 @PathVariable Long recipeId) {
+        log.info("获取我的食谱详情，userId: {}, recipeId: {}", userId, recipeId);
+        RecipeEditVO recipe = myRecipeService.getMyRecipeById(userId, recipeId);
+        return Result.success(recipe);
     }
     
     /**

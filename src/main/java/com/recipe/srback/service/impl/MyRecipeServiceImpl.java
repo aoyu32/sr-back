@@ -12,6 +12,7 @@ import com.recipe.srback.mapper.RecipeCategoryMapper;
 import com.recipe.srback.mapper.RecipeMapper;
 import com.recipe.srback.result.ResultCodeEnum;
 import com.recipe.srback.service.MyRecipeService;
+import com.recipe.srback.vo.RecipeEditVO;
 import com.recipe.srback.vo.RecipeListVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -103,6 +104,56 @@ public class MyRecipeServiceImpl implements MyRecipeService {
         return recipes.stream()
                 .map(this::convertToListVO)
                 .collect(Collectors.toList());
+    }
+    
+    @Override
+    public RecipeEditVO getMyRecipeById(Long userId, Long recipeId) {
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        
+        if (recipe == null || !recipe.getCreatorId().equals(userId)) {
+            throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
+        }
+        
+        // 查询分类code
+        RecipeCategory category = categoryMapper.selectById(recipe.getCategoryId());
+        String categoryCode = category != null ? category.getCode() : null;
+        
+        RecipeEditVO vo = new RecipeEditVO();
+        vo.setId(recipe.getId());
+        vo.setName(recipe.getName());
+        vo.setImage(recipe.getImage());
+        vo.setCategoryId(categoryCode);
+        vo.setCalories(recipe.getCalories());
+        vo.setProtein(recipe.getProtein());
+        vo.setCarbs(recipe.getCarbs());
+        vo.setFat(recipe.getFat());
+        vo.setDescription(recipe.getDescription());
+        
+        // 处理食材列表
+        if (recipe.getIngredients() != null && !recipe.getIngredients().isEmpty()) {
+            try {
+                List<RecipeEditVO.IngredientVO> ingredients = objectMapper.readValue(
+                    recipe.getIngredients(),
+                    objectMapper.getTypeFactory().constructCollectionType(List.class, RecipeEditVO.IngredientVO.class)
+                );
+                vo.setIngredients(ingredients);
+            } catch (JsonProcessingException e) {
+                log.error("解析食材列表失败", e);
+                vo.setIngredients(List.of());
+            }
+        } else {
+            vo.setIngredients(List.of());
+        }
+        
+        // 处理健康目标标签
+        if (recipe.getGoalTags() != null && !recipe.getGoalTags().isEmpty()) {
+            List<String> tags = Arrays.asList(recipe.getGoalTags().split(","));
+            vo.setGoalTags(tags);
+        } else {
+            vo.setGoalTags(List.of());
+        }
+        
+        return vo;
     }
     
     @Override
