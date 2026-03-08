@@ -30,6 +30,10 @@ public class RecipeDetailVO {
     
     private List<IngredientVO> ingredients;
     
+    private Boolean isLiked;
+    
+    private Boolean isCollected;
+    
     @Data
     public static class NutritionVO {
         private Integer calories;

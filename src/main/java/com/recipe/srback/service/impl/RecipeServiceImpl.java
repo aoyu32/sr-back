@@ -5,8 +5,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.recipe.srback.entity.Recipe;
 import com.recipe.srback.entity.RecipeCategory;
+import com.recipe.srback.entity.RecipeCollection;
+import com.recipe.srback.entity.RecipeLike;
 import com.recipe.srback.exception.BusinessException;
 import com.recipe.srback.mapper.RecipeCategoryMapper;
+import com.recipe.srback.mapper.RecipeCollectionMapper;
+import com.recipe.srback.mapper.RecipeLikeMapper;
 import com.recipe.srback.mapper.RecipeMapper;
 import com.recipe.srback.result.ResultCodeEnum;
 import com.recipe.srback.service.RecipeService;
@@ -15,6 +19,7 @@ import com.recipe.srback.vo.RecipeListVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +39,12 @@ public class RecipeServiceImpl implements RecipeService {
     
     @Autowired
     private RecipeCategoryMapper recipeCategoryMapper;
+    
+    @Autowired
+    private RecipeLikeMapper recipeLikeMapper;
+    
+    @Autowired
+    private RecipeCollectionMapper recipeCollectionMapper;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
     
@@ -121,7 +132,7 @@ public class RecipeServiceImpl implements RecipeService {
     }
     
     @Override
-    public RecipeDetailVO getRecipeDetailById(Long id) {
+    public RecipeDetailVO getRecipeDetailById(Long id, Long userId) {
         Recipe recipe = recipeMapper.selectById(id);
         
         if (recipe == null || recipe.getStatus() == 0) {
@@ -136,7 +147,145 @@ public class RecipeServiceImpl implements RecipeService {
         RecipeCategory category = recipeCategoryMapper.selectById(recipe.getCategoryId());
         String categoryName = category != null ? category.getName() : "";
         
-        return convertToDetailVO(recipe, categoryName);
+        // 查询用户是否点赞和收藏
+        boolean isLiked = false;
+        boolean isCollected = false;
+        
+        if (userId != null) {
+            LambdaQueryWrapper<RecipeLike> likeWrapper = new LambdaQueryWrapper<>();
+            likeWrapper.eq(RecipeLike::getRecipeId, id);
+            likeWrapper.eq(RecipeLike::getUserId, userId);
+            isLiked = recipeLikeMapper.selectCount(likeWrapper) > 0;
+            
+            LambdaQueryWrapper<RecipeCollection> collectionWrapper = new LambdaQueryWrapper<>();
+            collectionWrapper.eq(RecipeCollection::getRecipeId, id);
+            collectionWrapper.eq(RecipeCollection::getUserId, userId);
+            isCollected = recipeCollectionMapper.selectCount(collectionWrapper) > 0;
+        }
+        
+        return convertToDetailVO(recipe, categoryName, isLiked, isCollected);
+    }
+    
+    @Override
+    public List<RecipeListVO> searchRecipes(String keyword) {
+        LambdaQueryWrapper<Recipe> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Recipe::getStatus, 1);
+        wrapper.and(w -> w.like(Recipe::getName, keyword)
+                .or()
+                .like(Recipe::getDescription, keyword));
+        wrapper.orderByDesc(Recipe::getCreatedAt);
+        
+        List<Recipe> recipes = recipeMapper.selectList(wrapper);
+        
+        Map<Long, String> categoryMap = getCategoryCodeMap();
+        
+        return recipes.stream()
+                .map(recipe -> convertToListVO(recipe, categoryMap))
+                .collect(Collectors.toList());
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void likeRecipe(Long recipeId, Long userId) {
+        // 检查食谱是否存在
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        if (recipe == null || recipe.getStatus() == 0) {
+            throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
+        }
+        
+        // 检查是否已点赞
+        LambdaQueryWrapper<RecipeLike> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RecipeLike::getRecipeId, recipeId);
+        wrapper.eq(RecipeLike::getUserId, userId);
+        
+        if (recipeLikeMapper.selectCount(wrapper) > 0) {
+            throw new BusinessException(ResultCodeEnum.BAD_REQUEST.getCode(), "已经点赞过了");
+        }
+        
+        // 添加点赞记录
+        RecipeLike recipeLike = new RecipeLike();
+        recipeLike.setRecipeId(recipeId);
+        recipeLike.setUserId(userId);
+        recipeLikeMapper.insert(recipeLike);
+        
+        // 增加点赞数
+        recipe.setLikesCount(recipe.getLikesCount() + 1);
+        recipeMapper.updateById(recipe);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void unlikeRecipe(Long recipeId, Long userId) {
+        // 检查食谱是否存在
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        if (recipe == null || recipe.getStatus() == 0) {
+            throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
+        }
+        
+        // 删除点赞记录
+        LambdaQueryWrapper<RecipeLike> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RecipeLike::getRecipeId, recipeId);
+        wrapper.eq(RecipeLike::getUserId, userId);
+        
+        int deleted = recipeLikeMapper.delete(wrapper);
+        
+        if (deleted > 0) {
+            // 减少点赞数
+            recipe.setLikesCount(Math.max(0, recipe.getLikesCount() - 1));
+            recipeMapper.updateById(recipe);
+        }
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void collectRecipe(Long recipeId, Long userId) {
+        // 检查食谱是否存在
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        if (recipe == null || recipe.getStatus() == 0) {
+            throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
+        }
+        
+        // 检查是否已收藏
+        LambdaQueryWrapper<RecipeCollection> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RecipeCollection::getRecipeId, recipeId);
+        wrapper.eq(RecipeCollection::getUserId, userId);
+        
+        if (recipeCollectionMapper.selectCount(wrapper) > 0) {
+            throw new BusinessException(ResultCodeEnum.BAD_REQUEST.getCode(), "已经收藏过了");
+        }
+        
+        // 添加收藏记录
+        RecipeCollection recipeCollection = new RecipeCollection();
+        recipeCollection.setRecipeId(recipeId);
+        recipeCollection.setUserId(userId);
+        recipeCollectionMapper.insert(recipeCollection);
+        
+        // 增加收藏数
+        recipe.setCollectionsCount(recipe.getCollectionsCount() + 1);
+        recipeMapper.updateById(recipe);
+    }
+    
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void uncollectRecipe(Long recipeId, Long userId) {
+        // 检查食谱是否存在
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        if (recipe == null || recipe.getStatus() == 0) {
+            throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
+        }
+        
+        // 删除收藏记录
+        LambdaQueryWrapper<RecipeCollection> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(RecipeCollection::getRecipeId, recipeId);
+        wrapper.eq(RecipeCollection::getUserId, userId);
+        
+        int deleted = recipeCollectionMapper.delete(wrapper);
+        
+        if (deleted > 0) {
+            // 减少收藏数
+            recipe.setCollectionsCount(Math.max(0, recipe.getCollectionsCount() - 1));
+            recipeMapper.updateById(recipe);
+        }
     }
     
     /**
@@ -173,7 +322,7 @@ public class RecipeServiceImpl implements RecipeService {
     /**
      * 转换为详情VO
      */
-    private RecipeDetailVO convertToDetailVO(Recipe recipe, String categoryName) {
+    private RecipeDetailVO convertToDetailVO(Recipe recipe, String categoryName, boolean isLiked, boolean isCollected) {
         RecipeDetailVO vo = new RecipeDetailVO();
         vo.setId(recipe.getId().toString());
         vo.setName(recipe.getName());
@@ -183,6 +332,8 @@ public class RecipeServiceImpl implements RecipeService {
         vo.setCollections(recipe.getCollectionsCount());
         vo.setViews(recipe.getViewsCount());
         vo.setDescription(recipe.getDescription());
+        vo.setIsLiked(isLiked);
+        vo.setIsCollected(isCollected);
         
         // 营养信息
         RecipeDetailVO.NutritionVO nutrition = new RecipeDetailVO.NutritionVO();

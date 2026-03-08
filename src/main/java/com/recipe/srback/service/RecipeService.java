@@ -33,5 +33,30 @@ public interface RecipeService {
     /**
      * 根据ID查询食谱详情
      */
-    RecipeDetailVO getRecipeDetailById(Long id);
+    RecipeDetailVO getRecipeDetailById(Long id, Long userId);
+    
+    /**
+     * 根据关键词搜索食谱（搜索名称和分类）
+     */
+    List<RecipeListVO> searchRecipes(String keyword);
+    
+    /**
+     * 点赞食谱
+     */
+    void likeRecipe(Long recipeId, Long userId);
+    
+    /**
+     * 取消点赞食谱
+     */
+    void unlikeRecipe(Long recipeId, Long userId);
+    
+    /**
+     * 收藏食谱
+     */
+    void collectRecipe(Long recipeId, Long userId);
+    
+    /**
+     * 取消收藏食谱
+     */
+    void uncollectRecipe(Long recipeId, Long userId);
 }
