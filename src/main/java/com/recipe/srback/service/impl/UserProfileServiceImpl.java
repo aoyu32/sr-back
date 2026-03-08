@@ -1,7 +1,7 @@
 package com.recipe.srback.service.impl;
 
 import com.recipe.srback.exception.BusinessException;
-import com.recipe.srback.mapper.UserHealthProfileMapper;
+import com.recipe.srback.mapper.UserProfileMapper;
 import com.recipe.srback.result.ResultCodeEnum;
 import com.recipe.srback.service.UserProfileService;
 import com.recipe.srback.vo.UserProfileVO;
@@ -15,14 +15,14 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class UserProfileServiceImpl implements UserProfileService {
     
-    private final UserHealthProfileMapper userHealthProfileMapper;
+    private final UserProfileMapper userProfileMapper;
     
     /**
      * 获取用户信息
      */
     @Override
     public UserProfileVO getUserProfile(Long userId) {
-        UserProfileVO userProfile = userHealthProfileMapper.getUserProfileById(userId);
+        UserProfileVO userProfile = userProfileMapper.getUserProfileById(userId);
         
         if (userProfile == null) {
             throw new BusinessException(ResultCodeEnum.USER_NOT_FOUND);
