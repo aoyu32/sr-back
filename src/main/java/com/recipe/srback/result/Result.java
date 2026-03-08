@@ -32,16 +32,6 @@ public class Result<T> implements Serializable {
     }
     
     /**
-     * 成功返回（带消息）
-     */
-    public static <T> Result<T> success(String message) {
-        Result<T> result = new Result<>();
-        result.setCode(ResultCodeEnum.SUCCESS.getCode());
-        result.setMessage(message);
-        return result;
-    }
-    
-    /**
      * 成功返回（带数据）
      */
     public static <T> Result<T> success(T data) {
@@ -55,7 +45,7 @@ public class Result<T> implements Serializable {
     /**
      * 成功返回（带消息和数据）
      */
-    public static <T> Result<T> success(String message, T data) {
+    public static <T> Result<T> successWithMessage(String message, T data) {
         Result<T> result = new Result<>();
         result.setCode(ResultCodeEnum.SUCCESS.getCode());
         result.setMessage(message);

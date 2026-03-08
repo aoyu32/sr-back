@@ -63,6 +63,6 @@ public class UserAuthController {
             @Parameter(description = "邮箱", required = true) @RequestParam String email,
             @Parameter(description = "类型：register-注册，reset_password-重置密码", required = true) @RequestParam String type) {
         userAuthService.sendVerificationCode(email, type);
-        return Result.success("验证码已发送");
+        return Result.success();
     }
 }

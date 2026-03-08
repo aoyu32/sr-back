@@ -55,7 +55,7 @@ springdoc:
   swagger-ui:
     enabled: true  
 jwt:
-  secret: smartrepicebacksystem
+  secret: smartrepicebacksystemsecretkey2024
   expiration: 7d
 logging:
   level:
@@ -63,11 +63,11 @@ logging:
 
 aliyun:
   oss:
-    enabled: false  # 暂时禁用OSS，需要时改为true并配置下面的信息
+    enabled: true
     endpoint: oss-cn-beijing.aliyuncs.com
-    access-key-id:
-    access-key-secret:
-    bucket-name: sr-back
+    access-key-id: LTAI5tMkfPnuazLWJdAbh9Ju
+    access-key-secret: abN46L9N2YkTxSEYmOMVnSuBGqXS7h
+    bucket-name: smart-recipe
 
 user:
   default:
