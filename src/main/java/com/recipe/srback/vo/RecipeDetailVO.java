@@ -34,6 +34,8 @@ public class RecipeDetailVO {
     
     private Boolean isCollected;
     
+    private List<String> tags;
+    
     @Data
     public static class NutritionVO {
         private Integer calories;

@@ -335,6 +335,14 @@ public class RecipeServiceImpl implements RecipeService {
         vo.setIsLiked(isLiked);
         vo.setIsCollected(isCollected);
         
+        // 解析goalTags为数组
+        if (recipe.getGoalTags() != null && !recipe.getGoalTags().isEmpty()) {
+            List<String> tags = Arrays.asList(recipe.getGoalTags().split(","));
+            vo.setTags(tags);
+        } else {
+            vo.setTags(new ArrayList<>());
+        }
+        
         // 营养信息
         RecipeDetailVO.NutritionVO nutrition = new RecipeDetailVO.NutritionVO();
         nutrition.setCalories(recipe.getCalories());
