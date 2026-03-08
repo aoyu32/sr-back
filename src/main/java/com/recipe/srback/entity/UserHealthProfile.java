@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 @Data
 @TableName("user_health_profile")
 public class UserHealthProfile {
-    
     @TableId(type = IdType.AUTO)
     private Long id;
     
