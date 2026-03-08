@@ -16,6 +16,7 @@ public enum ResultCodeEnum {
     UNAUTHORIZED(401, "未授权，请先登录"),
     FORBIDDEN(403, "没有权限访问"),
     NOT_FOUND(404, "请求的资源不存在"),
+    PARAM_ERROR(400, "参数错误"),
     
     // 业务错误 10xx
     EMAIL_ALREADY_EXISTS(1001, "该邮箱已被注册"),
@@ -27,6 +28,7 @@ public enum ResultCodeEnum {
     VERIFICATION_CODE_SEND_FREQUENTLY(1007, "验证码发送过于频繁，请稍后再试"),
     TOKEN_INVALID(1008, "Token无效或已过期"),
     USER_NOT_FOUND(1009, "用户不存在"),
+    DATA_NOT_FOUND(1010, "数据不存在"),
     
     // 服务器错误 5xx
     INTERNAL_SERVER_ERROR(500, "系统内部错误"),
