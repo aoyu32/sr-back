@@ -1,6 +1,9 @@
 package com.recipe.srback.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.recipe.srback.dto.UpdateEmailDTO;
+import com.recipe.srback.dto.UpdateNicknameDTO;
+import com.recipe.srback.dto.UpdatePasswordDTO;
 import com.recipe.srback.dto.UpdateProfileDTO;
 import com.recipe.srback.entity.User;
 import com.recipe.srback.entity.UserHealthProfile;
@@ -8,7 +11,10 @@ import com.recipe.srback.exception.BusinessException;
 import com.recipe.srback.mapper.UserMapper;
 import com.recipe.srback.mapper.UserProfileMapper;
 import com.recipe.srback.result.ResultCodeEnum;
+import com.recipe.srback.service.EmailService;
 import com.recipe.srback.service.UserProfileService;
+import com.recipe.srback.utils.PasswordUtil;
+import com.recipe.srback.utils.VerificationCodeUtil;
 import com.recipe.srback.vo.UserProfileVO;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,6 +32,9 @@ public class UserProfileServiceImpl implements UserProfileService {
     
     private final UserProfileMapper userProfileMapper;
     private final UserMapper userMapper;
+    private final EmailService emailService;
+    private final VerificationCodeUtil verificationCodeUtil;
+    private final PasswordUtil passwordUtil;
     
     /**
      * 获取用户信息
@@ -128,5 +137,100 @@ public class UserProfileServiceImpl implements UserProfileService {
                 healthProfile.setBmiStatus("obese");
             }
         }
+    }
+    
+    /**
+     * 修改昵称
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateNickname(Long userId, UpdateNicknameDTO dto) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCodeEnum.USER_NOT_FOUND);
+        }
+        
+        if (dto.getNickname() == null || dto.getNickname().trim().isEmpty()) {
+            throw new BusinessException(ResultCodeEnum.PARAM_ERROR);
+        }
+        
+        user.setNickname(dto.getNickname().trim());
+        userMapper.updateById(user);
+    }
+    
+    /**
+     * 发送修改邮箱验证码
+     */
+    @Override
+    public void sendUpdateEmailCode(Long userId, String newEmail) {
+        // 检查新邮箱是否已被使用
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getEmail, newEmail);
+        User existUser = userMapper.selectOne(wrapper);
+        
+        if (existUser != null) {
+            throw new BusinessException(ResultCodeEnum.EMAIL_ALREADY_EXISTS);
+        }
+        
+        // 生成6位数字验证码
+        String code = String.format("%06d", new java.util.Random().nextInt(999999));
+        
+        // 保存验证码到内存
+        verificationCodeUtil.saveCode(newEmail, code, "update_email");
+        
+        // 发送邮件
+        emailService.sendVerificationCode(newEmail, code, "update_email");
+    }
+    
+    /**
+     * 修改邮箱
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateEmail(Long userId, UpdateEmailDTO dto) {
+        // 验证验证码
+        if (!verificationCodeUtil.verifyCode(dto.getNewEmail(), dto.getVerificationCode(), "update_email")) {
+            throw new BusinessException(ResultCodeEnum.VERIFICATION_CODE_ERROR);
+        }
+        
+        // 检查新邮箱是否已被使用
+        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(User::getEmail, dto.getNewEmail());
+        User existUser = userMapper.selectOne(wrapper);
+        
+        if (existUser != null) {
+            throw new BusinessException(ResultCodeEnum.EMAIL_ALREADY_EXISTS);
+        }
+        
+        // 更新邮箱
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCodeEnum.USER_NOT_FOUND);
+        }
+        
+        user.setEmail(dto.getNewEmail());
+        userMapper.updateById(user);
+    }
+    
+    /**
+     * 修改密码
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updatePassword(Long userId, UpdatePasswordDTO dto) {
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ResultCodeEnum.USER_NOT_FOUND);
+        }
+        
+        // 验证旧密码
+        if (!passwordUtil.matches(dto.getOldPassword(), user.getPassword())) {
+            throw new BusinessException(ResultCodeEnum.OLD_PASSWORD_ERROR);
+        }
+        
+        // 加密新密码
+        String encryptedNewPassword = passwordUtil.encode(dto.getNewPassword());
+        user.setPassword(encryptedNewPassword);
+        userMapper.updateById(user);
     }
 }

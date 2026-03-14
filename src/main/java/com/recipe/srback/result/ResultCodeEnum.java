@@ -29,6 +29,7 @@ public enum ResultCodeEnum {
     TOKEN_INVALID(1008, "Token无效或已过期"),
     USER_NOT_FOUND(1009, "用户不存在"),
     DATA_NOT_FOUND(1010, "数据不存在"),
+    OLD_PASSWORD_ERROR(1011, "旧密码错误"),
     
     // 服务器错误 5xx
     INTERNAL_SERVER_ERROR(500, "系统内部错误"),

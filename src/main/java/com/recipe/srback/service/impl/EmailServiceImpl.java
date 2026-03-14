@@ -40,6 +40,9 @@ public class EmailServiceImpl implements EmailService {
             } else if ("reset_password".equals(type)) {
                 subject = "【食谱小智】重置密码验证码";
                 content = EmailUtil.buildResetPasswordEmailContent(code);
+            } else if ("update_email".equals(type)) {
+                subject = "【食谱小智】修改邮箱验证码";
+                content = EmailUtil.buildUpdateEmailContent(code);
             } else {
                 subject = "【食谱小智】验证码";
                 content = EmailUtil.buildDefaultEmailContent(code);

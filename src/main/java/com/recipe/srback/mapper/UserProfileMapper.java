@@ -17,6 +17,7 @@ public interface UserProfileMapper extends BaseMapper<UserHealthProfile> {
      */
     @Select("SELECT " +
             "u.id, " +
+            "u.email, " +
             "u.avatar, " +
             "u.nickname, " +
             "uhp.height, " +
