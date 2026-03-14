@@ -73,3 +73,9 @@ user:
   default:
     nickname-prefix: user  # 默认昵称前缀
     avatar: https://smart-recipe.oss-cn-beijing.aliyuncs.com/default-avatar.jfif  # 默认头像
+
+coze:
+  base-url: https://api.coze.cn
+  access-token: pat_wtBjE0IbYbhblMT8jIxAO8p0mOdxZtcWamB1KBMuN4KvytdnOnqGlZJ0iB5F2ve0
+  workflow-id: 7617004651002593332
+  timeout: 120000  # 120秒超时

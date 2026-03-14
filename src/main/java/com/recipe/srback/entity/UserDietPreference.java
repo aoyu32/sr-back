@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 @Data
 @TableName("user_diet_preference")
 public class UserDietPreference {
+    
     @TableId(type = IdType.AUTO)
     private Long id;
     

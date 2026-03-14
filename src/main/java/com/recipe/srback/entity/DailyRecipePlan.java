@@ -5,30 +5,39 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 /**
- * 用户特殊禁忌实体
+ * 每日食谱计划主表
  */
 @Data
-@TableName("user_restriction")
-public class UserRestriction {
+@TableName("daily_recipe_plan")
+public class DailyRecipePlan {
     
     @TableId(type = IdType.AUTO)
     private Long id;
     
     private Long userId;
     
-    private String type;
+    private LocalDate planDate;
     
-    private String name;
+    private String title;
     
     private String description;
     
-    private String severity;
+    private Integer totalCalories;
     
-    private LocalDate addedDate;
+    private BigDecimal totalProtein;
+    
+    private BigDecimal totalCarbs;
+    
+    private BigDecimal totalFat;
+    
+    private String generationType;
+    
+    private Integer isActive;
     
     private LocalDateTime createdAt;
     
