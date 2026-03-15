@@ -30,6 +30,8 @@ public enum ResultCodeEnum {
     USER_NOT_FOUND(1009, "用户不存在"),
     DATA_NOT_FOUND(1010, "数据不存在"),
     OLD_PASSWORD_ERROR(1011, "旧密码错误"),
+    AI_SERVICE_ERROR(1012, "AI服务调用失败，请稍后重试"),
+    NO_PERMISSION(1013, "没有权限操作"),
     
     // 服务器错误 5xx
     INTERNAL_SERVER_ERROR(500, "系统内部错误"),
