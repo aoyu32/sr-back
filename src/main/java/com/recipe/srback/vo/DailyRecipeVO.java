@@ -52,6 +52,9 @@ public class DailyRecipeVO {
     
     @Data
     public static class RecipeItemVO {
+        @JsonProperty("item_id")
+        private Long itemId;
+        
         @JsonProperty("recipe_id")
         private Long recipeId;
         

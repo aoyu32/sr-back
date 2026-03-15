@@ -23,4 +23,22 @@ public interface DailyRecipeService {
      * @return 每日食谱推荐结果
      */
     DailyRecipeVO getTodayRecipe(Long userId);
+    
+    /**
+     * 将食谱添加到今日食谱推荐
+     * 
+     * @param userId 用户ID
+     * @param recipeId 食谱ID
+     * @param mealType 餐次类型：breakfast/lunch/dinner
+     * @return 食谱项ID
+     */
+    Long addRecipeToTodayPlan(Long userId, Long recipeId, String mealType);
+    
+    /**
+     * 从今日食谱推荐中删除食谱项
+     * 
+     * @param userId 用户ID
+     * @param itemId 食谱项ID
+     */
+    void deleteRecipeFromTodayPlan(Long userId, Long itemId);
 }

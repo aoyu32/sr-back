@@ -24,6 +24,7 @@ public class FoodCheckinController {
     
     private final FoodCheckinService foodCheckinService;
     private final DietDiaryService dietDiaryService;
+    private final com.recipe.srback.service.DailyRecipeService dailyRecipeService;
     private final JwtUtil jwtUtil;
     
     /**
@@ -133,5 +134,33 @@ public class FoodCheckinController {
         TodayCheckinVO vo = dietDiaryService.getTodayCheckin(userId);
         
         return Result.success(vo);
+    }
+    
+    /**
+     * 将食谱添加到今日餐食
+     * 
+     * @param request HTTP请求
+     * @param dto 请求参数
+     * @return 食谱项ID
+     */
+    @PostMapping("/food-checkin/add-recipe")
+    public Result<Long> addRecipeToMeal(
+            HttpServletRequest request,
+            @RequestBody com.recipe.srback.dto.AddRecipeToMealDTO dto) {
+        
+        // 获取用户ID
+        String token = request.getHeader("Authorization");
+        if (token != null && token.startsWith("Bearer ")) {
+            token = token.substring(7);
+        }
+        Long userId = jwtUtil.getUserIdFromToken(token);
+        
+        log.info("用户{}添加食谱到今日食谱，食谱ID：{}，餐次：{}", 
+                userId, dto.getRecipeId(), dto.getMealType());
+        
+        // 调用服务添加到今日食谱推荐
+        Long itemId = dailyRecipeService.addRecipeToTodayPlan(userId, dto.getRecipeId(), dto.getMealType());
+        
+        return Result.success(itemId);
     }
 }

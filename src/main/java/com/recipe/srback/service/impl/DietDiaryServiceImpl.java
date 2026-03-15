@@ -34,22 +34,22 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class DietDiaryServiceImpl implements DietDiaryService {
-    
+
     private final DietDiaryMapper dietDiaryMapper;
     private final DietDiaryMealMapper dietDiaryMealMapper;
     private final DietDiaryFoodMapper dietDiaryFoodMapper;
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long saveFoodCheckin(Long userId, SaveFoodCheckinDTO dto) {
         LocalDate today = LocalDate.now();
-        
+
         // 1. 获取或创建今日饮食日记
         DietDiary diary = getOrCreateDiary(userId, today);
-        
+
         // 2. 获取或创建餐次记录
         DietDiaryMeal meal = getOrCreateMeal(diary.getId(), dto.getMealType());
-        
+
         // 3. 创建食物记录
         DietDiaryFood food = new DietDiaryFood();
         food.setMealId(meal.getId());
@@ -62,26 +62,26 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         food.setAmount(dto.getAmount());
         food.setAiConfidence(BigDecimal.valueOf(dto.getConfidence()));
         food.setIsManual(0);
-        
+
         // 获取当前餐次的食物数量，作为排序
         LambdaQueryWrapper<DietDiaryFood> foodQuery = new LambdaQueryWrapper<>();
         foodQuery.eq(DietDiaryFood::getMealId, meal.getId());
         long foodCount = dietDiaryFoodMapper.selectCount(foodQuery);
         food.setSortOrder((int) foodCount);
-        
+
         dietDiaryFoodMapper.insert(food);
-        
+
         // 4. 更新餐次营养统计
         updateMealNutrition(meal.getId());
-        
+
         // 5. 更新日记营养统计
         updateDiaryNutrition(diary.getId());
-        
+
         log.info("保存食物打卡成功，用户：{}，餐次：{}，食物：{}", userId, dto.getMealType(), dto.getFoodName());
-        
+
         return food.getId();
     }
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteFoodCheckin(Long userId, Long foodId) {
@@ -90,31 +90,31 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         if (food == null) {
             throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
         }
-        
+
         // 2. 查询餐次记录
         DietDiaryMeal meal = dietDiaryMealMapper.selectById(food.getMealId());
         if (meal == null) {
             throw new BusinessException(ResultCodeEnum.DATA_NOT_FOUND);
         }
-        
+
         // 3. 查询日记记录，验证用户权限
         DietDiary diary = dietDiaryMapper.selectById(meal.getDiaryId());
         if (diary == null || !diary.getUserId().equals(userId)) {
             throw new BusinessException(ResultCodeEnum.NO_PERMISSION);
         }
-        
+
         // 4. 删除食物记录
         dietDiaryFoodMapper.deleteById(foodId);
-        
+
         // 5. 更新餐次营养统计
         updateMealNutrition(meal.getId());
-        
+
         // 6. 更新日记营养统计
         updateDiaryNutrition(diary.getId());
-        
+
         log.info("删除食物打卡成功，用户：{}，食物ID：{}", userId, foodId);
     }
-    
+
     /**
      * 获取或创建今日饮食日记
      */
@@ -122,9 +122,9 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         LambdaQueryWrapper<DietDiary> query = new LambdaQueryWrapper<>();
         query.eq(DietDiary::getUserId, userId)
              .eq(DietDiary::getDiaryDate, date);
-        
+
         DietDiary diary = dietDiaryMapper.selectOne(query);
-        
+
         if (diary == null) {
             diary = new DietDiary();
             diary.setUserId(userId);
@@ -134,13 +134,13 @@ public class DietDiaryServiceImpl implements DietDiaryService {
             diary.setTotalCarbs(BigDecimal.ZERO);
             diary.setTotalFat(BigDecimal.ZERO);
             diary.setMealsCheckedCount(0);
-            
+
             dietDiaryMapper.insert(diary);
         }
-        
+
         return diary;
     }
-    
+
     /**
      * 获取或创建餐次记录
      */
@@ -148,9 +148,9 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         LambdaQueryWrapper<DietDiaryMeal> query = new LambdaQueryWrapper<>();
         query.eq(DietDiaryMeal::getDiaryId, diaryId)
              .eq(DietDiaryMeal::getMealType, mealType);
-        
+
         DietDiaryMeal meal = dietDiaryMealMapper.selectOne(query);
-        
+
         if (meal == null) {
             meal = new DietDiaryMeal();
             meal.setDiaryId(diaryId);
@@ -160,13 +160,13 @@ public class DietDiaryServiceImpl implements DietDiaryService {
             meal.setMealProtein(BigDecimal.ZERO);
             meal.setMealCarbs(BigDecimal.ZERO);
             meal.setMealFat(BigDecimal.ZERO);
-            
+
             dietDiaryMealMapper.insert(meal);
         }
-        
+
         return meal;
     }
-    
+
     /**
      * 更新餐次营养统计
      */
@@ -175,24 +175,24 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         LambdaQueryWrapper<DietDiaryFood> query = new LambdaQueryWrapper<>();
         query.eq(DietDiaryFood::getMealId, mealId);
         List<DietDiaryFood> foods = dietDiaryFoodMapper.selectList(query);
-        
+
         // 计算总营养
         int totalCalories = foods.stream()
                 .mapToInt(f -> f.getCalories() != null ? f.getCalories() : 0)
                 .sum();
-        
+
         BigDecimal totalProtein = foods.stream()
                 .map(f -> f.getProtein() != null ? f.getProtein() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         BigDecimal totalCarbs = foods.stream()
                 .map(f -> f.getCarbs() != null ? f.getCarbs() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         BigDecimal totalFat = foods.stream()
                 .map(f -> f.getFat() != null ? f.getFat() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         // 更新餐次记录
         DietDiaryMeal meal = new DietDiaryMeal();
         meal.setId(mealId);
@@ -202,10 +202,10 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         meal.setMealFat(totalFat);
         meal.setIsChecked(foods.isEmpty() ? 0 : 1);
         meal.setCheckTime(foods.isEmpty() ? null : LocalDateTime.now());
-        
+
         dietDiaryMealMapper.updateById(meal);
     }
-    
+
     /**
      * 更新日记营养统计
      */
@@ -214,28 +214,28 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         LambdaQueryWrapper<DietDiaryMeal> query = new LambdaQueryWrapper<>();
         query.eq(DietDiaryMeal::getDiaryId, diaryId);
         List<DietDiaryMeal> meals = dietDiaryMealMapper.selectList(query);
-        
+
         // 计算总营养
         int totalCalories = meals.stream()
                 .mapToInt(m -> m.getMealCalories() != null ? m.getMealCalories() : 0)
                 .sum();
-        
+
         BigDecimal totalProtein = meals.stream()
                 .map(m -> m.getMealProtein() != null ? m.getMealProtein() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         BigDecimal totalCarbs = meals.stream()
                 .map(m -> m.getMealCarbs() != null ? m.getMealCarbs() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         BigDecimal totalFat = meals.stream()
                 .map(m -> m.getMealFat() != null ? m.getMealFat() : BigDecimal.ZERO)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
+
         int checkedCount = (int) meals.stream()
                 .filter(m -> m.getIsChecked() != null && m.getIsChecked() == 1)
                 .count();
-        
+
         // 更新日记记录
         DietDiary diary = new DietDiary();
         diary.setId(diaryId);
@@ -244,55 +244,55 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         diary.setTotalCarbs(totalCarbs);
         diary.setTotalFat(totalFat);
         diary.setMealsCheckedCount(checkedCount);
-        
+
         dietDiaryMapper.updateById(diary);
     }
-    
+
     @Override
     public TodayCheckinVO getTodayCheckin(Long userId) {
         LocalDate today = LocalDate.now();
-        
+
         // 查询今日饮食日记
         LambdaQueryWrapper<DietDiary> diaryQuery = new LambdaQueryWrapper<>();
         diaryQuery.eq(DietDiary::getUserId, userId)
                   .eq(DietDiary::getDiaryDate, today);
         DietDiary diary = dietDiaryMapper.selectOne(diaryQuery);
-        
+
         TodayCheckinVO vo = new TodayCheckinVO();
         List<TodayCheckinVO.MealCheckinVO> meals = new ArrayList<>();
-        
+
         // 定义三餐类型
         String[] mealTypes = {"breakfast", "lunch", "dinner"};
         String[] mealLabels = {"早餐", "午餐", "晚餐"};
-        
+
         for (int i = 0; i < mealTypes.length; i++) {
             String mealType = mealTypes[i];
             String mealLabel = mealLabels[i];
-            
+
             TodayCheckinVO.MealCheckinVO mealVO = new TodayCheckinVO.MealCheckinVO();
             mealVO.setMealType(mealType);
             mealVO.setLabel(mealLabel);
             mealVO.setChecked(false);
             mealVO.setCalories(0);
             mealVO.setFoods(new ArrayList<>());
-            
+
             // 如果有日记记录，查询餐次和食物
             if (diary != null) {
                 LambdaQueryWrapper<DietDiaryMeal> mealQuery = new LambdaQueryWrapper<>();
                 mealQuery.eq(DietDiaryMeal::getDiaryId, diary.getId())
                          .eq(DietDiaryMeal::getMealType, mealType);
                 DietDiaryMeal meal = dietDiaryMealMapper.selectOne(mealQuery);
-                
+
                 if (meal != null && meal.getIsChecked() == 1) {
                     mealVO.setChecked(true);
                     mealVO.setCalories(meal.getMealCalories());
-                    
+
                     // 查询食物列表
                     LambdaQueryWrapper<DietDiaryFood> foodQuery = new LambdaQueryWrapper<>();
                     foodQuery.eq(DietDiaryFood::getMealId, meal.getId())
                              .orderByAsc(DietDiaryFood::getSortOrder);
                     List<DietDiaryFood> foods = dietDiaryFoodMapper.selectList(foodQuery);
-                    
+
                     // 转换为VO
                     List<TodayCheckinVO.FoodItemVO> foodVOs = foods.stream()
                             .map(food -> {
@@ -309,22 +309,22 @@ public class DietDiaryServiceImpl implements DietDiaryService {
                                 return foodVO;
                             })
                             .collect(Collectors.toList());
-                    
+
                     mealVO.setFoods(foodVOs);
                 }
             }
-            
+
             meals.add(mealVO);
         }
-        
+
         vo.setMeals(meals);
-        
-        log.info("查询用户{}今日打卡记录，共{}餐", userId, 
+
+        log.info("查询用户{}今日打卡记录，共{}餐", userId,
                 meals.stream().filter(TodayCheckinVO.MealCheckinVO::getChecked).count());
-        
+
         return vo;
     }
-    
+
     @Override
     public DietDiaryVO getDietDiaryByDate(Long userId, LocalDate date) {
         // 查询指定日期的饮食日记
@@ -332,10 +332,10 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         diaryQuery.eq(DietDiary::getUserId, userId)
                   .eq(DietDiary::getDiaryDate, date);
         DietDiary diary = dietDiaryMapper.selectOne(diaryQuery);
-        
+
         return buildDietDiaryVO(diary, date);
     }
-    
+
     @Override
     public List<DietDiaryVO> getDietDiaryList(Long userId, LocalDate startDate, LocalDate endDate) {
         // 查询日期范围内的饮食日记
@@ -345,13 +345,13 @@ public class DietDiaryServiceImpl implements DietDiaryService {
                   .le(DietDiary::getDiaryDate, endDate)
                   .orderByDesc(DietDiary::getDiaryDate);
         List<DietDiary> diaries = dietDiaryMapper.selectList(diaryQuery);
-        
+
         // 转换为VO列表
         return diaries.stream()
                 .map(diary -> buildDietDiaryVO(diary, diary.getDiaryDate()))
                 .collect(Collectors.toList());
     }
-    
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteDietDiary(Long userId, Long diaryId) {
@@ -360,39 +360,39 @@ public class DietDiaryServiceImpl implements DietDiaryService {
         if (diary == null || !diary.getUserId().equals(userId)) {
             throw new BusinessException(ResultCodeEnum.NO_PERMISSION);
         }
-        
+
         // 查询该日记的所有餐次
         LambdaQueryWrapper<DietDiaryMeal> mealQuery = new LambdaQueryWrapper<>();
         mealQuery.eq(DietDiaryMeal::getDiaryId, diaryId);
         List<DietDiaryMeal> meals = dietDiaryMealMapper.selectList(mealQuery);
-        
+
         // 删除所有食物记录
         for (DietDiaryMeal meal : meals) {
             LambdaQueryWrapper<DietDiaryFood> foodQuery = new LambdaQueryWrapper<>();
             foodQuery.eq(DietDiaryFood::getMealId, meal.getId());
             dietDiaryFoodMapper.delete(foodQuery);
         }
-        
+
         // 删除所有餐次记录
         dietDiaryMealMapper.delete(mealQuery);
-        
+
         // 删除日记记录
         dietDiaryMapper.deleteById(diaryId);
-        
+
         log.info("删除饮食日记成功，用户：{}，日记ID：{}", userId, diaryId);
     }
-    
+
     /**
      * 构建饮食日记VO
      */
     private DietDiaryVO buildDietDiaryVO(DietDiary diary, LocalDate date) {
         DietDiaryVO vo = new DietDiaryVO();
-        
+
         // 设置日期和星期
         vo.setDate(date.toString());
         String[] weekdays = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
         vo.setWeekday(weekdays[date.getDayOfWeek().getValue() % 7]);
-        
+
         if (diary == null) {
             // 没有记录，返回空数据
             vo.setTotalCalories(0);
@@ -403,49 +403,49 @@ public class DietDiaryServiceImpl implements DietDiaryService {
             vo.setMeals(buildEmptyMeals());
             return vo;
         }
-        
+
         // 设置总营养数据
         vo.setTotalCalories(diary.getTotalCalories());
         vo.setTotalProtein(diary.getTotalProtein() != null ? diary.getTotalProtein().doubleValue() : 0.0);
         vo.setTotalCarbs(diary.getTotalCarbs() != null ? diary.getTotalCarbs().doubleValue() : 0.0);
         vo.setTotalFat(diary.getTotalFat() != null ? diary.getTotalFat().doubleValue() : 0.0);
-        
+
         // 查询餐次记录
         LambdaQueryWrapper<DietDiaryMeal> mealQuery = new LambdaQueryWrapper<>();
         mealQuery.eq(DietDiaryMeal::getDiaryId, diary.getId());
         List<DietDiaryMeal> meals = dietDiaryMealMapper.selectList(mealQuery);
-        
+
         // 构建餐次详情
-        Map<String, DietDiaryVO.MealDetailVO> mealsMap = new java.util.HashMap<>();
+        Map<String, DietDiaryVO.MealDetailVO> mealsMap = new HashMap<>();
         List<String> checkedMeals = new ArrayList<>();
-        
+
         String[] mealTypes = {"breakfast", "lunch", "dinner"};
         String[] mealLabels = {"早餐", "午餐", "晚餐"};
-        
+
         for (int i = 0; i < mealTypes.length; i++) {
             String mealType = mealTypes[i];
             String mealLabel = mealLabels[i];
-            
+
             DietDiaryMeal meal = meals.stream()
                     .filter(m -> mealType.equals(m.getMealType()))
                     .findFirst()
                     .orElse(null);
-            
+
             DietDiaryVO.MealDetailVO mealVO = new DietDiaryVO.MealDetailVO();
             mealVO.setTime(mealLabel);
-            
+
             if (meal != null && meal.getIsChecked() == 1) {
                 mealVO.setChecked(true);
                 mealVO.setCalories(meal.getMealCalories());
-                mealVO.setTimeRange(meal.getCheckTime() != null ? 
+                mealVO.setTimeRange(meal.getCheckTime() != null ?
                         meal.getCheckTime().toLocalTime().toString().substring(0, 5) : "未记录");
-                
+
                 // 查询食物列表
                 LambdaQueryWrapper<DietDiaryFood> foodQuery = new LambdaQueryWrapper<>();
                 foodQuery.eq(DietDiaryFood::getMealId, meal.getId())
                          .orderByAsc(DietDiaryFood::getSortOrder);
                 List<DietDiaryFood> foods = dietDiaryFoodMapper.selectList(foodQuery);
-                
+
                 List<DietDiaryVO.FoodDetailVO> foodVOs = foods.stream()
                         .map(food -> {
                             DietDiaryVO.FoodDetailVO foodVO = new DietDiaryVO.FoodDetailVO();
@@ -460,7 +460,7 @@ public class DietDiaryServiceImpl implements DietDiaryService {
                             return foodVO;
                         })
                         .collect(Collectors.toList());
-                
+
                 mealVO.setFoods(foodVOs);
                 checkedMeals.add(mealType);
             } else {
@@ -469,25 +469,25 @@ public class DietDiaryServiceImpl implements DietDiaryService {
                 mealVO.setTimeRange("未记录");
                 mealVO.setFoods(new ArrayList<>());
             }
-            
+
             mealsMap.put(mealType, mealVO);
         }
-        
+
         vo.setCheckedMeals(checkedMeals);
         vo.setMeals(mealsMap);
-        
+
         return vo;
     }
-    
+
     /**
      * 构建空餐次数据
      */
     private Map<String, DietDiaryVO.MealDetailVO> buildEmptyMeals() {
-        Map<String, DietDiaryVO.MealDetailVO> mealsMap = new java.util.HashMap<>();
-        
+        Map<String, DietDiaryVO.MealDetailVO> mealsMap = new HashMap<>();
+
         String[] mealTypes = {"breakfast", "lunch", "dinner"};
         String[] mealLabels = {"早餐", "午餐", "晚餐"};
-        
+
         for (int i = 0; i < mealTypes.length; i++) {
             DietDiaryVO.MealDetailVO mealVO = new DietDiaryVO.MealDetailVO();
             mealVO.setTime(mealLabels[i]);
@@ -497,7 +497,8 @@ public class DietDiaryServiceImpl implements DietDiaryService {
             mealVO.setFoods(new ArrayList<>());
             mealsMap.put(mealTypes[i], mealVO);
         }
-        
+
         return mealsMap;
     }
 }
+

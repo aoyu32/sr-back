@@ -79,4 +79,33 @@ public class DailyRecipeController {
             return Result.error("获取今日食谱失败：" + e.getMessage());
         }
     }
+    
+    /**
+     * 从今日食谱推荐中删除食谱项
+     */
+    @DeleteMapping("/daily-recipe/item/{itemId}")
+    @Operation(summary = "删除今日食谱项", description = "从今日食谱推荐中删除指定的食谱项")
+    public Result<Void> deleteRecipeItem(
+            HttpServletRequest request,
+            @PathVariable Long itemId) {
+        try {
+            // 从token中获取用户ID
+            String token = request.getHeader("Authorization");
+            if (token != null && token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            }
+            Long userId = jwtUtil.getUserIdFromToken(token);
+            
+            log.info("用户{}请求删除食谱项，itemId：{}", userId, itemId);
+            
+            // 调用服务删除
+            dailyRecipeService.deleteRecipeFromTodayPlan(userId, itemId);
+            
+            return Result.success();
+            
+        } catch (Exception e) {
+            log.error("删除食谱项失败", e);
+            return Result.error("删除失败：" + e.getMessage());
+        }
+    }
 }

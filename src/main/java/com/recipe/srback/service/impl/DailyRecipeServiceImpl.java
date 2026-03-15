@@ -512,6 +512,7 @@ public class DailyRecipeServiceImpl implements DailyRecipeService {
                 List<DailyRecipeVO.RecipeItemVO> recipeItems = new ArrayList<>();
                 for (DailyRecipePlanMealItem item : items) {
                     DailyRecipeVO.RecipeItemVO itemVO = new DailyRecipeVO.RecipeItemVO();
+                    itemVO.setItemId(item.getId());
                     itemVO.setRecipeId(item.getRecipeId());
                     itemVO.setRecipeName(item.getItemName());
                     itemVO.setAmount(item.getAmount());
@@ -561,5 +562,211 @@ public class DailyRecipeServiceImpl implements DailyRecipeService {
             log.error("转换食谱数据失败", e);
             throw new RuntimeException("转换食谱数据失败：" + e.getMessage());
         }
+    }
+    
+    @Override
+    public Long addRecipeToTodayPlan(Long userId, Long recipeId, String mealType) {
+        LocalDate today = LocalDate.now();
+        
+        // 1. 查询食谱信息
+        Recipe recipe = recipeMapper.selectById(recipeId);
+        if (recipe == null) {
+            throw new RuntimeException("食谱不存在");
+        }
+        
+        // 2. 查询或创建今日食谱计划
+        LambdaQueryWrapper<DailyRecipePlan> planWrapper = new LambdaQueryWrapper<>();
+        planWrapper.eq(DailyRecipePlan::getUserId, userId)
+                   .eq(DailyRecipePlan::getPlanDate, today)
+                   .eq(DailyRecipePlan::getIsActive, 1)
+                   .orderByDesc(DailyRecipePlan::getCreatedAt)
+                   .last("LIMIT 1");
+        
+        DailyRecipePlan plan = dailyRecipePlanMapper.selectOne(planWrapper);
+        
+        // 如果没有今日计划，创建一个空计划
+        if (plan == null) {
+            plan = new DailyRecipePlan();
+            plan.setUserId(userId);
+            plan.setPlanDate(today);
+            plan.setTitle("Today，我的食谱");
+            plan.setDescription("手动添加的食谱");
+            plan.setTotalCalories(0);
+            plan.setTotalProtein(BigDecimal.ZERO);
+            plan.setTotalCarbs(BigDecimal.ZERO);
+            plan.setTotalFat(BigDecimal.ZERO);
+            plan.setGenerationType("manual");
+            plan.setIsActive(1);
+            plan.setCreatedAt(LocalDateTime.now());
+            plan.setUpdatedAt(LocalDateTime.now());
+            
+            dailyRecipePlanMapper.insert(plan);
+            log.info("创建今日食谱计划，planId：{}", plan.getId());
+        }
+        
+        Long planId = plan.getId();
+        
+        // 3. 查询或创建餐次记录
+        LambdaQueryWrapper<DailyRecipePlanMeal> mealWrapper = new LambdaQueryWrapper<>();
+        mealWrapper.eq(DailyRecipePlanMeal::getPlanId, planId)
+                   .eq(DailyRecipePlanMeal::getMealType, mealType);
+        
+        DailyRecipePlanMeal meal = dailyRecipePlanMealMapper.selectOne(mealWrapper);
+        
+        if (meal == null) {
+            meal = new DailyRecipePlanMeal();
+            meal.setPlanId(planId);
+            meal.setMealType(mealType);
+            meal.setMealName(getMealName(mealType));
+            meal.setTimeRange(getDefaultTimeRange(mealType));
+            meal.setSortOrder(getSortOrder(mealType));
+            meal.setCreatedAt(LocalDateTime.now());
+            meal.setUpdatedAt(LocalDateTime.now());
+            
+            dailyRecipePlanMealMapper.insert(meal);
+            log.info("创建餐次记录，mealType：{}，mealId：{}", mealType, meal.getId());
+        }
+        
+        Long mealPlanId = meal.getId();
+        
+        // 4. 检查该食谱是否已经添加到该餐次（防止重复）
+        LambdaQueryWrapper<DailyRecipePlanMealItem> checkWrapper = new LambdaQueryWrapper<>();
+        checkWrapper.eq(DailyRecipePlanMealItem::getMealPlanId, mealPlanId)
+                    .eq(DailyRecipePlanMealItem::getRecipeId, recipeId);
+        Long existCount = dailyRecipePlanMealItemMapper.selectCount(checkWrapper);
+        
+        if (existCount > 0) {
+            throw new RuntimeException("该食谱已添加到今日" + getMealName(mealType));
+        }
+        
+        // 5. 获取当前餐次的食谱数量，作为排序
+        LambdaQueryWrapper<DailyRecipePlanMealItem> countWrapper = new LambdaQueryWrapper<>();
+        countWrapper.eq(DailyRecipePlanMealItem::getMealPlanId, mealPlanId);
+        long itemCount = dailyRecipePlanMealItemMapper.selectCount(countWrapper);
+        
+        // 6. 创建食谱项记录
+        DailyRecipePlanMealItem item = new DailyRecipePlanMealItem();
+        item.setMealPlanId(mealPlanId);
+        item.setRecipeId(recipe.getId());
+        item.setItemName(recipe.getName());
+        item.setItemImage(recipe.getImage());
+        item.setAmount("1份");
+        item.setCalories(recipe.getCalories());
+        item.setProtein(recipe.getProtein());
+        item.setCarbs(recipe.getCarbs());
+        item.setFat(recipe.getFat());
+        item.setSortOrder((int) itemCount + 1);
+        item.setCreatedAt(LocalDateTime.now());
+        item.setUpdatedAt(LocalDateTime.now());
+        
+        dailyRecipePlanMealItemMapper.insert(item);
+        
+        // 7. 更新计划的总营养值
+        updatePlanNutrition(planId);
+        
+        log.info("添加食谱到今日食谱成功，用户：{}，食谱：{}，餐次：{}", userId, recipe.getName(), mealType);
+        
+        return item.getId();
+    }
+    
+    /**
+     * 获取默认时间范围
+     */
+    private String getDefaultTimeRange(String mealType) {
+        switch (mealType) {
+            case "breakfast":
+                return "07:00-09:00";
+            case "lunch":
+                return "11:30-13:00";
+            case "dinner":
+                return "18:00-20:00";
+            default:
+                return "00:00-00:00";
+        }
+    }
+    
+    /**
+     * 获取排序值
+     */
+    private int getSortOrder(String mealType) {
+        switch (mealType) {
+            case "breakfast":
+                return 1;
+            case "lunch":
+                return 2;
+            case "dinner":
+                return 3;
+            default:
+                return 99;
+        }
+    }
+    
+    /**
+     * 更新计划的总营养值
+     */
+    private void updatePlanNutrition(Long planId) {
+        // 查询该计划的所有餐次
+        LambdaQueryWrapper<DailyRecipePlanMeal> mealWrapper = new LambdaQueryWrapper<>();
+        mealWrapper.eq(DailyRecipePlanMeal::getPlanId, planId);
+        List<DailyRecipePlanMeal> meals = dailyRecipePlanMealMapper.selectList(mealWrapper);
+        
+        int totalCalories = 0;
+        BigDecimal totalProtein = BigDecimal.ZERO;
+        BigDecimal totalCarbs = BigDecimal.ZERO;
+        BigDecimal totalFat = BigDecimal.ZERO;
+        
+        // 遍历每个餐次，累加所有食谱项的营养值
+        for (DailyRecipePlanMeal meal : meals) {
+            LambdaQueryWrapper<DailyRecipePlanMealItem> itemWrapper = new LambdaQueryWrapper<>();
+            itemWrapper.eq(DailyRecipePlanMealItem::getMealPlanId, meal.getId());
+            List<DailyRecipePlanMealItem> items = dailyRecipePlanMealItemMapper.selectList(itemWrapper);
+            
+            for (DailyRecipePlanMealItem item : items) {
+                totalCalories += item.getCalories() != null ? item.getCalories() : 0;
+                totalProtein = totalProtein.add(item.getProtein() != null ? item.getProtein() : BigDecimal.ZERO);
+                totalCarbs = totalCarbs.add(item.getCarbs() != null ? item.getCarbs() : BigDecimal.ZERO);
+                totalFat = totalFat.add(item.getFat() != null ? item.getFat() : BigDecimal.ZERO);
+            }
+        }
+        
+        // 更新计划记录
+        DailyRecipePlan plan = new DailyRecipePlan();
+        plan.setId(planId);
+        plan.setTotalCalories(totalCalories);
+        plan.setTotalProtein(totalProtein);
+        plan.setTotalCarbs(totalCarbs);
+        plan.setTotalFat(totalFat);
+        plan.setUpdatedAt(LocalDateTime.now());
+        
+        dailyRecipePlanMapper.updateById(plan);
+    }
+    
+    @Override
+    public void deleteRecipeFromTodayPlan(Long userId, Long itemId) {
+        // 1. 查询食谱项
+        DailyRecipePlanMealItem item = dailyRecipePlanMealItemMapper.selectById(itemId);
+        if (item == null) {
+            throw new RuntimeException("食谱项不存在");
+        }
+        
+        // 2. 查询餐次记录
+        DailyRecipePlanMeal meal = dailyRecipePlanMealMapper.selectById(item.getMealPlanId());
+        if (meal == null) {
+            throw new RuntimeException("餐次记录不存在");
+        }
+        
+        // 3. 查询计划记录，验证用户权限
+        DailyRecipePlan plan = dailyRecipePlanMapper.selectById(meal.getPlanId());
+        if (plan == null || !plan.getUserId().equals(userId)) {
+            throw new RuntimeException("没有权限删除");
+        }
+        
+        // 4. 删除食谱项
+        dailyRecipePlanMealItemMapper.deleteById(itemId);
+        
+        // 5. 更新计划的总营养值
+        updatePlanNutrition(plan.getId());
+        
+        log.info("从今日食谱删除食谱项成功，用户：{}，itemId：{}", userId, itemId);
     }
 }
