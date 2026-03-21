@@ -19,6 +19,8 @@ public class CozeConfig {
     private String accessToken;
     
     private String workflowId;
+
+    private String botId;
     
     private Integer timeout = 30000;
     

@@ -78,4 +78,5 @@ coze:
   base-url: https://api.coze.cn
   access-token: pat_wtBjE0IbYbhblMT8jIxAO8p0mOdxZtcWamB1KBMuN4KvytdnOnqGlZJ0iB5F2ve0
   workflow-id: 7617004651002593332
+  bot-id: 7616988226854682670
   timeout: 120000  # 120秒超时
