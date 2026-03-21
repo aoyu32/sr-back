@@ -1,6 +1,7 @@
 package com.recipe.srback.config;
 
 import com.recipe.srback.interceptor.JwtInterceptor;
+import com.recipe.srback.interceptor.PermissionAdminInterceptor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
@@ -13,9 +14,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
-    
+
     private final JwtInterceptor jwtInterceptor;
-    
+    private final PermissionAdminInterceptor permissionAdminInterceptor;
+
     /**
      * 配置跨域
      */
@@ -28,26 +30,30 @@ public class WebMvcConfig implements WebMvcConfigurer {
                 .allowCredentials(true)
                 .maxAge(3600);
     }
-    
+
     /**
      * 配置拦截器
      */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtInterceptor)
+                .order(0)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
-                        // 认证相关接口不需要token
                         "/api/auth/**",
-                        // Swagger相关
+                        "/api/admin/auth/login",
                         "/doc.html",
                         "/webjars/**",
                         "/swagger-resources/**",
                         "/v3/api-docs/**",
                         "/favicon.ico",
-                        // 静态资源
                         "/static/**",
                         "/public/**"
                 );
+
+        registry.addInterceptor(permissionAdminInterceptor)
+                .order(1)
+                .addPathPatterns("/api/admin/**")
+                .excludePathPatterns("/api/admin/auth/login");
     }
 }

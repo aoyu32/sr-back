@@ -20,54 +20,60 @@ import java.util.Map;
 @Slf4j
 @Component
 public class JwtUtil {
-    
+
     @Value("${jwt.secret}")
     private String secret;
-    
+
     @Value("${jwt.expiration}")
     private String expiration;
-    
+
     /**
      * 获取密钥
      */
     private SecretKey getSecretKey() {
-        // 确保密钥长度足够（至少32字节）
         byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
-    
+
     /**
-     * 获取过期时间（毫秒）
+     * 获取过期时间
      */
     private long getExpirationTime() {
-        // 解析配置的过期时间，支持格式：7d（天）、24h（小时）、60m（分钟）
         String value = expiration.toLowerCase();
         long time = Long.parseLong(value.replaceAll("[^0-9]", ""));
-        
+
         if (value.endsWith("d")) {
-            return time * 24 * 60 * 60 * 1000; // 天
+            return time * 24 * 60 * 60 * 1000;
         } else if (value.endsWith("h")) {
-            return time * 60 * 60 * 1000; // 小时
+            return time * 60 * 60 * 1000;
         } else if (value.endsWith("m")) {
-            return time * 60 * 1000; // 分钟
+            return time * 60 * 1000;
         } else {
-            return time; // 默认毫秒
+            return time;
         }
     }
-    
+
     /**
-     * 生成Token
+     * 生成普通用户Token
      */
     public String generateToken(Long userId, String email) {
+        return generateToken(userId, email, "user");
+    }
+
+    /**
+     * 生成带角色的Token
+     */
+    public String generateToken(Long userId, String email, String role) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("email", email);
-        
+        claims.put("role", role);
+
         long expirationTime = getExpirationTime();
         Date expirationDate = new Date(System.currentTimeMillis() + expirationTime);
-        
-        log.debug("生成Token，用户ID：{}，过期时间：{}", userId, expirationDate);
-        
+
+        log.debug("生成Token，userId: {}, role: {}, expireAt: {}", userId, role, expirationDate);
+
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(email)
@@ -76,7 +82,7 @@ public class JwtUtil {
                 .signWith(getSecretKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
-    
+
     /**
      * 解析Token
      */
@@ -87,40 +93,39 @@ public class JwtUtil {
                 .parseClaimsJws(token)
                 .getBody();
     }
-    
+
     /**
-     * 验证Token是否有效
+     * 校验Token
      */
     public boolean validateToken(String token) {
         try {
             Claims claims = parseToken(token);
-            Date expiration = claims.getExpiration();
-            boolean isValid = !expiration.before(new Date());
-            
-            if (!isValid) {
-                log.warn("Token已过期，过期时间：{}", expiration);
-            }
-            
-            return isValid;
+            return !claims.getExpiration().before(new Date());
         } catch (Exception e) {
-            log.error("Token验证失败：{}", e.getMessage());
+            log.error("Token校验失败: {}", e.getMessage());
             return false;
         }
     }
-    
+
     /**
-     * 从Token中获取用户ID
+     * 获取用户ID
      */
     public Long getUserIdFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.get("userId", Long.class);
+        return parseToken(token).get("userId", Long.class);
     }
-    
+
     /**
-     * 从Token中获取邮箱
+     * 获取邮箱
      */
     public String getEmailFromToken(String token) {
-        Claims claims = parseToken(token);
-        return claims.get("email", String.class);
+        return parseToken(token).get("email", String.class);
+    }
+
+    /**
+     * 获取角色
+     */
+    public String getRoleFromToken(String token) {
+        String role = parseToken(token).get("role", String.class);
+        return role == null || role.isEmpty() ? "user" : role;
     }
 }
